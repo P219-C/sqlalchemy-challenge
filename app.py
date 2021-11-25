@@ -21,6 +21,16 @@ Base.prepare(engine, reflect = True)
 # Save references to each table
 Measurement = Base.classes.measurement
 Station = Base.classes.station
+
+session = Session(bind = engine)
+# Design a query to retrieve the last 12 months of precipitation data and plot the results
+last_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
+# Converting date in string format into datetime object
+last_date = dt.datetime.strptime(last_date[0], '%Y-%m-%d')
+# Calculate the date 1 year ago from the last data point in the database
+last_year = last_date - dt.timedelta(days=365)
+session.close()
+
 #==================================================================
 app = Flask("Climate App")
 
@@ -58,13 +68,6 @@ def home():
 def precipitation():
     # Create our session (link) from Python to the DB
     session = Session(bind = engine)
-
-    # Design a query to retrieve the last 12 months of precipitation data and plot the results
-    last_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
-    # Converting date in string format into datetime object
-    last_date = dt.datetime.strptime(last_date[0], '%Y-%m-%d')
-    # Calculate the date 1 year ago from the last data point in the database
-    last_year = last_date - dt.timedelta(days=365)
     # Perform a query to retrieve the data and precipitation scores
     query1 = session.query(Measurement.station, Measurement.date, Measurement.prcp, Measurement.tobs).filter(Measurement.date >= last_year).order_by(Measurement.date).all()
     session.close()
@@ -91,7 +94,24 @@ def stations():
 
 @app.route(dict_routes['tobs'])
 def tobs():
-    return "pass"
+    session = Session(bind=engine)
+    query1 = session.query(Station.station).all()
+    
+
+    station_dict = {}
+    for station in query1:
+        station_dict[station[0]] = session.query(Measurement.date).filter(Measurement.station == station[0]).count()
+
+    most_active_station = max(station_dict, key=station_dict.get)
+
+    query2 = session.query(Measurement.date, Measurement.tobs).filter(Measurement.date >= last_year).filter(Measurement.station == most_active_station).order_by(Measurement.date).all()
+    session.close()
+
+    date_tobs_list = []
+    for row in query2:
+        date_tobs_list.append([row[0], row[1]])
+
+    return jsonify(date_tobs_list)
 
 # @app.route("/api/v1.0<start>")
 
