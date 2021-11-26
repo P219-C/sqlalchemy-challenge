@@ -58,7 +58,22 @@ def home():
     <p>
         <h2>Observed temperature</h2>
         <a target="_blank" href="http://127.0.0.1:5000/{dict_routes['tobs']}">Click here: {dict_routes['tobs']}</a>
-    </p>"""
+    </p>
+    <p>
+        <h2>Temperature summary 1 (Tmin, Tavg, Tmax) [start date only]</h2>
+        <p>Calculates Tmin, Tavg and Tmax for all dates greater than and equal to the start date</p>
+        <p></p>
+        <p>Use the following format: "http://127.0.0.1:5000//api/v1.0/start_date"</p>
+        <p>Where start_date is a string in the format %Y-%m-%d.
+    </p>
+    <p>
+        <h2>Temperature summary 2 (Tmin, Tavg, Tmax) [start date & end date]</h2>
+        <p>Calculates Tmin, Tavg and Tmax for dates between the start date and end date inclusive</p>
+        <p></p>
+        <p>Use the following format: "http://127.0.0.1:5000//api/v1.0/start_date/end_date"</p>
+        <p>Where start_date and end_date are strings in the format %Y-%m-%d.
+    </p>
+    """
     
     return text
 
@@ -104,7 +119,7 @@ def tobs():
 
     most_active_station = max(station_dict, key=station_dict.get)
 
-    query2 = session.query(Measurement.date, Measurement.tobs).filter(Measurement.date >= last_year).filter(Measurement.station == most_active_station).order_by(Measurement.date).all()
+    query2 = session.query(Measurement.date, Measurement.tobs).filter(Measurement.date >= last_year).filter(Measurement.station == most_active_station).order_by(Measurement.date.desc()).all()
     session.close()
 
     date_tobs_list = []
@@ -113,7 +128,31 @@ def tobs():
 
     return jsonify(date_tobs_list)
 
-# @app.route("/api/v1.0<start>")
+@app.route("/api/v1.0/<start_date>")
+def calc_temps1(start_date):
+
+    session = Session(bind=engine)
+    query1 = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).filter(Measurement.date >= start_date).all()
+    session.close()
+
+    list_temp = []
+    for row in query1:
+        list_temp = (row[0], row[1], row[2])
+
+    return jsonify(list_temp)
+
+@app.route("/api/v1.0/<start_date>/<end_date>")
+def calc_temps2(start_date, end_date):
+    session = Session(bind=engine)
+    query1 = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).filter(Measurement.date >= start_date).filter(Measurement.date <= end_date).all()
+    session.close()
+
+    list_temp = []
+    for row in query1:
+        list_temp = (row[0], row[1], row[2])
+
+    return jsonify(list_temp)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
